@@ -1,0 +1,20 @@
+{
+    "name": "bloom-ux/wpdb-monolog",
+    "description": "Integrate monolog logging with $wpdb using wonolog",
+    "type": "wordpress-muplugin",
+    "require": {
+        "inpsyde/wonolog": "2.x-dev",
+        "bradmkjr/monolog-wordpress": "dev-master"
+    },
+    "license": "GPL-3.0-or-later",
+    "authors": [
+        {
+            "name": "Felipe Lavín Z.",
+            "email": "felipe@bloom-ux.com"
+        }
+    ],
+    "minimum-stability": "dev"
+    "extra": {
+        "installer-name": "bloom-ux-wpdb-monolog"
+    }
+}
