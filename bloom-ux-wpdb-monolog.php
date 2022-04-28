@@ -18,6 +18,6 @@ $wpdb_handler->conf_table_size_limiter( 256000 );
 $record = [ 'extra' => [] ];
 $wpdb_handler->initialize( $record );
 
-Inpsyde\Wonolog\bootstrap(
+\Inpsyde\Wonolog\bootstrap(
 	$wpdb_handler
 );
