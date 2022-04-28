@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "28b2c45fc88de379339917e650e91711",
+    "content-hash": "05f4064feb52ccb99ed043c27248602b",
     "packages": [
         {
             "name": "bradmkjr/monolog-wordpress",
@@ -305,5 +305,8 @@
     "prefer-lowest": false,
     "platform": [],
     "platform-dev": [],
+    "platform-overrides": {
+        "php": "7.2.24"
+    },
     "plugin-api-version": "2.2.0"
 }

@@ -13,8 +13,13 @@
             "email": "felipe@bloom-ux.com"
         }
     ],
-    "minimum-stability": "dev"
+    "minimum-stability": "dev",
     "extra": {
         "installer-name": "bloom-ux-wpdb-monolog"
+    },
+    "config": {
+        "platform": {
+            "php": "7.2.24"
+        }
     }
 }
