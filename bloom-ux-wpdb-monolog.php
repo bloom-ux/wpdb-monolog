@@ -30,5 +30,6 @@ add_action(
 	function( Configurator $config ) use ( $wpdb_handler ) {
 		$config->disableFallbackHandler();
 		$config->pushHandler( $wpdb_handler );
+		$config->doNotLogPhpErrors();
 	}
 );
