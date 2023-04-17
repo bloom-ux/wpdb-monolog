@@ -3,8 +3,7 @@
     "description": "Integrate monolog logging with $wpdb using wonolog",
     "type": "wordpress-muplugin",
     "require": {
-        "inpsyde/wonolog": "2.x-dev",
-        "bradmkjr/monolog-wordpress": "dev-master"
+        "monolog/monolog": "^2"
     },
     "license": "GPL-3.0-or-later",
     "authors": [
