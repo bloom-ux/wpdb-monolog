@@ -69,7 +69,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 			return;
 		}
 		$charset = $this->wpdb->get_charset_collate();
-		$table_name = "{$this->wpdb->base_prefix}logs";
+		$table_name = "{$this->wpdb->base_prefix}{$this->table}";
 		$sql = "CREATE TABLE $table_name (
 		    id BIGINT( 20 ) UNSIGNED NOT NULL AUTO_INCREMENT,
             channel VARCHAR( 255 ) NOT NULL,
@@ -136,7 +136,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 			$row
 		);
 		$this->wpdb->insert(
-			"{$this->wpdb->base_prefix}logs",
+			"{$this->wpdb->base_prefix}{$this->table}",
 			$row,
 			$formats
 		);
