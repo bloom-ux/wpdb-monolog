@@ -221,7 +221,7 @@ function init_logger_for_channel( string $channel ) : Logger {
  * @return void
  * @throws InvalidArgumentException
  */
-function set_level( $channel_or_logger, $level ) {
+function set_channel_level( $channel_or_logger, $level ) {
 	if ( is_string( $channel_or_logger ) ) {
 		$logger = get_logger_for_channel( $channel_or_logger );
 	} else {
@@ -234,11 +234,10 @@ function set_level( $channel_or_logger, $level ) {
 	}
 }
 
-$logger = get_logger_for_channel( 'foo' );
-set_level( $logger, Logger::INFO );
-
-add_action( 'shutdown', function() use ( $logger ) {
-	$logger->info('hola {foo}', array(
-		'foo' => wp_get_current_user()->display_name
-	) );
-});
+// $logger = get_logger_for_channel( 'foo' );
+// set_channel_level( $logger, Logger::INFO );
+// add_action( 'shutdown', function() use ( $logger ) {
+	// $logger->info('hola {foo}', array(
+	// 	'foo' => wp_get_current_user()->display_name
+	// ) );
+// });
