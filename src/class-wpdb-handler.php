@@ -2,8 +2,9 @@
 
 namespace bloom\WPDB_Monolog;
 
-use DateTimeZone;
 use wpdb;
+use WP_Error;
+use DateTimeZone;
 use Monolog\Logger;
 use Monolog\Handler\AbstractProcessingHandler;
 
@@ -123,15 +124,34 @@ class WPDB_Handler extends AbstractProcessingHandler {
 			}
 			// "context" and "extra" are stored as JSON.
 			if ( in_array( $key, array( 'context', 'extra' ) ) ) {
+				if ( is_array( $val ) ) {
+					foreach ( $val as $k => $v ) {
+						if ( is_wp_error( $v ) ) {
+							$error_data = array();
+							foreach ( $v->get_error_data() as $data_key => $error_value ) {
+								$error_data[ $data_key ] = wp_check_invalid_utf8( $error_value );
+							}
+							$val[ $k ] = array(
+								'codes'    => $v->get_error_codes(),
+								'messages' => $v->get_error_messages(),
+								'data'     => $error_data,
+							);
+						} else {
+							$val[ $k ] = $v;
+						}
+					}
+				} else {
+					$val = wp_check_invalid_utf8( $val );
+				}
 				$val = json_encode( $val );
 			}
 			$row[ $key ] = $val;
 		}
 
-		$created_local = $record['datetime']->setTimezone( $this->timezone );
-		$row['created_at'] = $created_local->format('Y-m-d H:i:s.u');
+		$created_local         = $record['datetime']->setTimezone( $this->timezone );
+		$row['created_at']     = $created_local->format('Y-m-d H:i:s.u');
 		$row['created_at_gmt'] = $record['datetime']->format('Y-m-d H:i:s.u');
-		$formats = array_intersect_key(
+		$formats               = array_intersect_key(
 			$this->get_columns_formats(),
 			$row
 		);
