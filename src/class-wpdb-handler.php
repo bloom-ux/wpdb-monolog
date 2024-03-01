@@ -128,7 +128,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 					foreach ( $val as $k => $v ) {
 						if ( is_wp_error( $v ) ) {
 							$error_data = array();
-							foreach ( $v->get_error_data() as $data_key => $error_value ) {
+							foreach ( (array) $v->get_error_data() as $data_key => $error_value ) {
 								$error_data[ $data_key ] = wp_check_invalid_utf8( $error_value );
 							}
 							$val[ $k ] = array(
