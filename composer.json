@@ -20,5 +20,10 @@
         "platform": {
             "php": "7.2.24"
         }
-    }
+    },
+	"autoload": {
+		"psr-4": {
+			"bloom\\WPDB_Monolog\\": "src/"
+		}
+	}
 }
