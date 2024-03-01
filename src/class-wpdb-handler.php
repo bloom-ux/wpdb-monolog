@@ -3,7 +3,6 @@
 namespace bloom\WPDB_Monolog;
 
 use wpdb;
-use WP_Error;
 use DateTimeZone;
 use Monolog\Logger;
 use Monolog\Handler\AbstractProcessingHandler;
