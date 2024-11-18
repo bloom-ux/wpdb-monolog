@@ -2,9 +2,6 @@
     "name": "bloom-ux/wpdb-monolog",
     "description": "Integrate monolog logging with $wpdb using wonolog",
     "type": "wordpress-muplugin",
-    "require": {
-        "monolog/monolog": "^2"
-    },
     "license": "GPL-3.0-or-later",
     "authors": [
         {
@@ -12,18 +9,13 @@
             "email": "felipe@bloom-ux.com"
         }
     ],
-    "minimum-stability": "dev",
     "extra": {
         "installer-name": "bloom-ux-wpdb-monolog"
     },
-    "config": {
-        "platform": {
-            "php": "7.2.24"
-        }
-    },
 	"autoload": {
-		"psr-4": {
-			"bloom\\WPDB_Monolog\\": "src/"
-		}
-	}
+		"classmap": [ "src/" ]
+	},
+    "require": {
+        "monolog/monolog": "^3"
+    }
 }

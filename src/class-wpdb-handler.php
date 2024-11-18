@@ -1,22 +1,44 @@
 <?php
+/**
+ * Monolog handler to write logs to a custom table in the WordPress database
+ *
+ * @package Bloom_UX\WPDB_Monolog
+ */
 
-namespace bloom\WPDB_Monolog;
+namespace Bloom_UX\WPDB_Monolog;
 
 use wpdb;
 use DateTimeZone;
-use Monolog\Logger;
+use Monolog\Level;
+use Monolog\LogRecord;
 use Monolog\Handler\AbstractProcessingHandler;
+use WP_Exception;
+use Psr\Log\InvalidArgumentException;
 
+/**
+ * Monolog handler to write logs to a custom table in the WordPress database
+ */
 class WPDB_Handler extends AbstractProcessingHandler {
 
+	/**
+	 * Instance of the WordPress database class
+	 *
+	 * @var wpdb|null
+	 */
 	private $wpdb;
 
 	/**
 	 * Local timezone
+	 *
 	 * @var \DateTimeZone
 	 */
 	private $timezone;
 
+	/**
+	 * The (unprefixed) name of the table to store the logs; "monolog" by default.
+	 *
+	 * @var string
+	 */
 	private $table;
 
 	const FALLBACK_TIMEZONE = 'Etc/UTC';
@@ -25,10 +47,19 @@ class WPDB_Handler extends AbstractProcessingHandler {
 
 	const INSTALLED_VERSION_OPT_NAME = 'wpdb_monolog_handler_version';
 
+	/**
+	 * Constructor
+	 *
+	 * @param wpdb|null $wpdb Instance of the WordPress database class.
+	 * @param string    $table The (unprefixed) name of the table to store the logs, "monolog" by default.
+	 * @param mixed     $level The minimum logging level at which this handler will be triggered.
+	 * @param bool      $bubble Whether the messages that are handled can bubble up the stack or not.
+	 * @return void
+	 */
 	public function __construct(
 		wpdb $wpdb = null,
 		$table = 'monolog',
-		$level = Logger::DEBUG,
+		$level = Level::Debug,
 		$bubble = true
 	) {
 		$this->wpdb = $wpdb;
@@ -86,7 +117,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 			KEY created ( created_at ),
 			KEY message ( message( 191 ) )
 		) $charset";
-		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 		update_option( static::INSTALLED_VERSION_OPT_NAME, static::VERSION );
 	}
@@ -96,7 +127,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 	 *
 	 * @return array Map of columns to sanitization format
 	 */
-	private function get_columns_formats( ) : array {
+	private function get_columns_formats(): array {
 		return array(
 			'channel'        => '%s',
 			'message'        => '%s',
@@ -111,18 +142,24 @@ class WPDB_Handler extends AbstractProcessingHandler {
 
 	/**
 	 * Write the record to db
-	 * @param array $record array{message: string, context: mixed[], level: Level, level_name: LevelName, channel: string, datetime: \DateTimeImmutable, extra: mixed[], formatted: mixed}
+	 *
+	 * @param LogRecord $record Log record.
 	 * @return void
 	 */
-    protected function write ( $record ) : void {
-		$row = [];
+	protected function write( LogRecord $record ): void {
+		$row = array();
 		foreach ( $record as $key => $val ) {
 			// Use only allowed formats.
 			if ( ! isset( $this->get_columns_formats()[ $key ] ) ) {
 				continue;
 			}
-			// "context" and "extra" are stored as JSON.
-			if ( in_array( $key, array( 'context', 'extra' ) ) ) {
+			if ( 'level' === $key ) {
+				// Store level name as well.
+				$row['level_name'] = $val->toPsrLogLevel();
+				$row['level'] = $val->value;
+				continue;
+			} elseif ( in_array( $key, array( 'context', 'extra' ) ) ) {
+				// "context" and "extra" are stored as JSON.
 				if ( is_array( $val ) ) {
 					foreach ( $val as $k => $v ) {
 						if ( is_wp_error( $v ) ) {
@@ -148,8 +185,8 @@ class WPDB_Handler extends AbstractProcessingHandler {
 		}
 
 		$created_local         = $record['datetime']->setTimezone( $this->timezone );
-		$row['created_at']     = $created_local->format('Y-m-d H:i:s.u');
-		$row['created_at_gmt'] = $record['datetime']->format('Y-m-d H:i:s.u');
+		$row['created_at']     = $created_local->format( 'Y-m-d H:i:s.u' );
+		$row['created_at_gmt'] = $record['datetime']->format( 'Y-m-d H:i:s.u' );
 		$formats               = array_intersect_key(
 			$this->get_columns_formats(),
 			$row
