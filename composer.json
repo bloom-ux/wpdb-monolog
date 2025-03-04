@@ -22,8 +22,8 @@
         }
     },
 	"autoload": {
-		"psr-4": {
-			"bloom\\WPDB_Monolog\\": "src/"
-		}
+		"classmap": [
+			"src/"
+		]
 	}
 }
