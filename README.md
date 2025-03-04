@@ -12,8 +12,9 @@ If you're using composer's autoloader, you're done.
 
 ## Components
 
-- `\bloom\WPDB_Monolog\WPDB_Handler` → monolog handler that writes logs to your WordPress database.
-- `\bloom\WPDB_Monolog\WP_Processor` → monolog processor that adds "extra" data to a monolog record.
+- `\bloom\WPDB_Monolog\WPDB_Handler`   → monolog handler that writes logs to your WordPress database.
+- `\bloom\WPDB_Monolog\WP_CLI_Handler` → monolog handler that writes logs to WordPress command line interface.
+- `\bloom\WPDB_Monolog\WP_Processor`   → monolog processor that adds "extra" data to a monolog record.
 
 ## Usage
 
