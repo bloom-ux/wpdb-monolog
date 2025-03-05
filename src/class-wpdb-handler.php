@@ -1,4 +1,9 @@
 <?php
+/**
+ * WordPress database handler for monolog records
+ *
+ * @package bloom\WPDB_Monolog
+ */
 
 namespace bloom\WPDB_Monolog;
 
@@ -7,16 +12,30 @@ use DateTimeZone;
 use Monolog\Logger;
 use Monolog\Handler\AbstractProcessingHandler;
 
+/**
+ * Log records to the WordPress database
+ */
 class WPDB_Handler extends AbstractProcessingHandler {
 
+	/**
+	 * WordPress database object
+	 *
+	 * @var wpdb
+	 */
 	private $wpdb;
 
 	/**
 	 * Local timezone
+	 *
 	 * @var \DateTimeZone
 	 */
 	private $timezone;
 
+	/**
+	 * Table name
+	 *
+	 * @var string
+	 */
 	private $table;
 
 	const FALLBACK_TIMEZONE = 'Etc/UTC';
@@ -25,6 +44,14 @@ class WPDB_Handler extends AbstractProcessingHandler {
 
 	const INSTALLED_VERSION_OPT_NAME = 'wpdb_monolog_handler_version';
 
+	/**
+	 * Handler constructor
+	 *
+	 * @param wpdb|null $wpdb "wpdb" driver instance.
+	 * @param string    $table The name of the table that will store the logs.
+	 * @param int       $level The log level.
+	 * @param bool      $bubble Whether the messages that are handled can bubble up the stack or not.
+	 */
 	public function __construct(
 		wpdb $wpdb = null,
 		$table = 'monolog',
@@ -63,6 +90,11 @@ class WPDB_Handler extends AbstractProcessingHandler {
 		return $this;
 	}
 
+	/**
+	 * Create the table if it doesn't exist
+	 *
+	 * @return void
+	 */
 	private function maybe_create_db_table() {
 		$installed_version = get_option( static::INSTALLED_VERSION_OPT_NAME, '0.0.0' );
 		if ( $installed_version >= static::VERSION ) {
@@ -86,7 +118,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 			KEY created ( created_at ),
 			KEY message ( message( 191 ) )
 		) $charset";
-		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
 		update_option( static::INSTALLED_VERSION_OPT_NAME, static::VERSION );
 	}
@@ -96,7 +128,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 	 *
 	 * @return array Map of columns to sanitization format
 	 */
-	private function get_columns_formats( ) : array {
+	private function get_columns_formats(): array {
 		return array(
 			'channel'        => '%s',
 			'message'        => '%s',
@@ -111,11 +143,22 @@ class WPDB_Handler extends AbstractProcessingHandler {
 
 	/**
 	 * Write the record to db
-	 * @param array $record array{message: string, context: mixed[], level: Level, level_name: LevelName, channel: string, datetime: \DateTimeImmutable, extra: mixed[], formatted: mixed}
+	 *
+	 * @param array $record {
+	 *    The log record.
+	 *    @type string $message The log message.
+	 *    @type mixed[] $context The log context.
+	 *    @type int $level The severity level of the log.
+	 *    @type string $level_name The severity level name of the log.
+	 *    @type string $channel The channel name of the log.
+	 *    @type \DateTimeImmutable $datetime The timestamp of the log.
+	 *    @type mixed[] $extra The extra data.
+	 *    @type mixed $formatted The formatted message.
+	 * }
 	 * @return void
 	 */
-    protected function write ( $record ) : void {
-		$row = [];
+	protected function write( $record ): void {
+		$row = array();
 		foreach ( $record as $key => $val ) {
 			// Use only allowed formats.
 			if ( ! isset( $this->get_columns_formats()[ $key ] ) ) {
@@ -148,8 +191,8 @@ class WPDB_Handler extends AbstractProcessingHandler {
 		}
 
 		$created_local         = $record['datetime']->setTimezone( $this->timezone );
-		$row['created_at']     = $created_local->format('Y-m-d H:i:s.u');
-		$row['created_at_gmt'] = $record['datetime']->format('Y-m-d H:i:s.u');
+		$row['created_at']     = $created_local->format( 'Y-m-d H:i:s.u' );
+		$row['created_at_gmt'] = $record['datetime']->format( 'Y-m-d H:i:s.u' );
 		$formats               = array_intersect_key(
 			$this->get_columns_formats(),
 			$row
