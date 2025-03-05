@@ -1,12 +1,27 @@
 <?php
+/**
+ * WP CLI handler for monolog
+ *
+ * @package bloom\WPDB_Monolog
+ */
 
 namespace bloom\WPDB_Monolog;
 
 use WP_CLI;
 use Monolog\Handler\AbstractProcessingHandler;
 
+/**
+ * Outputs log records to WordPress CLI
+ */
 class WP_CLI_Handler extends AbstractProcessingHandler {
-    protected function write( array $record ): void {
+
+	/**
+	 * Write a record to WordPress CLI
+	 *
+	 * @param array $record The log record.
+	 * @return void
+	 */
+	protected function write( array $record ): void {
 		$level = (int) $record['level'];
 		if ( $level >= 400 ) {
 			WP_CLI::error( $record['formatted'], false );
@@ -17,9 +32,5 @@ class WP_CLI_Handler extends AbstractProcessingHandler {
 		} else {
 			WP_CLI::debug( $record['formatted'], $record['context'] );
 		}
-		if ( $this->level <= 250 ) {
-			WP_CLI::error_multi_line( explode( "\n", json_encode( is_string( $record['context'] ) ? json_decode( $record['context'] ) : $record['context'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ) );
-		}
 	}
-
 }
