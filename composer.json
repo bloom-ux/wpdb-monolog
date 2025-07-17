@@ -1,6 +1,6 @@
 {
     "name": "bloom-ux/wpdb-monolog",
-    "description": "Integrate monolog logging with $wpdb using wonolog",
+    "description": "Integrate monolog logging with $wpdb",
     "type": "wordpress-muplugin",
     "require": {
         "monolog/monolog": "^2"
@@ -9,7 +9,7 @@
     "authors": [
         {
             "name": "Felipe Lavín Z.",
-            "email": "felipe@bloom-ux.com"
+            "email": "felipe@bloom.lat"
         }
     ],
     "minimum-stability": "dev",
@@ -18,7 +18,7 @@
     },
     "config": {
         "platform": {
-            "php": "7.2.24"
+            "php": ">=7.4"
         }
     },
 	"autoload": {
