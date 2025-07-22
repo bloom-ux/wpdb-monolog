@@ -10,29 +10,57 @@
 namespace bloom\WPDB_Monolog;
 
 use DateTimeZone;
+use WP_CLI;
 use wpdb;
 
 /**
  * Handles the interactions with the database
  */
 class Repository {
-	const VERSION = '0.1.0';
+	const VERSION = '0.2.0';
 
 	const INSTALLED_VERSION_OPT_NAME = 'wpdb_monolog_handler_version';
 
 	const FALLBACK_TIMEZONE = 'Etc/UTC';
 
+	/**
+	 * Instance of the repository class
+	 *
+	 * @var ?static
+	 */
 	private static $instance = null;
 
-	private $wpdb;
+	/**
+	 * WordPress database handler instance
+	 *
+	 * @var wpdb
+	 */
+	private wpdb $wpdb;
 
-	private $table = 'monolog';
+	/**
+	 * Full name of the table used to save log records ($wpdb->base_prefix . 'monolog').
+	 *
+	 * @var string
+	 */
+	private $table = '';
 
+	/**
+	 * Timezone used for created_at timestamps on records saved to database.
+	 *
+	 * @var ?DateTimeZone
+	 */
 	private $timezone = null;
 
-	private function __construct(){
+	/**
+	 * Construct a new Repositry
+	 *
+	 * @param wpdb $wpdb WordPress database class instance.
+	 */
+	private function __construct( wpdb $wpdb ) {
 		// Set a default timezone.
 		$this->set_timezone();
+		$this->wpdb  = $wpdb;
+		$this->table = $this->wpdb->base_prefix . 'monolog';
 	}
 
 	/**
@@ -60,9 +88,9 @@ class Repository {
 		if ( $installed_version >= static::VERSION ) {
 			return;
 		}
-		$charset = $this->wpdb->get_charset_collate();
+		$charset    = $this->wpdb->get_charset_collate();
 		$table_name = "{$this->wpdb->base_prefix}{$this->table}";
-		$sql = "CREATE TABLE $table_name (
+		$sql        = "CREATE TABLE $table_name (
 		    id BIGINT( 20 ) UNSIGNED NOT NULL AUTO_INCREMENT,
             channel VARCHAR( 255 ) NOT NULL,
             message TEXT NOT NULL,
@@ -175,5 +203,137 @@ class Repository {
 			$row,
 			$formats
 		);
+	}
+
+	/**
+	 * Find records according to the given parameters.
+	 *
+	 * phpcs:disable WordPress.DB.PreparedSQL.NotPrepared
+	 *
+	 * @param array $params {
+	 *     Query parameters.
+	 *     @type string $channel    Channel name.
+	 *     @type ?int   $level      Log record level.
+	 *     @type string $level_name Log record level name.
+	 *     @type string $message    Log message (does partial matches by default).
+	 *     @type ?int   $blog_id    Blog id where the message was originated. Default null.
+	 *     @type int    $paged      Page of results. Default 1.
+	 *     @type int    $per_page   Number of results at once. Default 10.
+	 *     @type string $order_by   How to sort results. Can be any table column. Default 'id';
+	 *     @type string $order      Whether to sort ascending or descending. Default 'DESC'
+	 * }
+	 * @return array|Record[] Array of found records or empty array if none found.
+	 */
+	public function find_by_query( array $params = array() ) {
+		$args         = wp_parse_args(
+			$params,
+			array(
+				'channel'    => '',
+				'level'      => null,
+				'level_name' => '',
+				'message'    => '',
+				'blog_id'    => null,
+				'paged'      => 1,
+				'per_page'   => 10,
+				'order_by'   => 'id',
+				'order'      => 'DESC',
+			)
+		);
+		$query_params = array();
+		$query        = "SELECT * FROM {$this->table} WHERE 1 = 1 ";
+		if ( ! empty( $args['channel'] ) ) {
+			$query         .= ' AND channel = %s ';
+			$query_params[] = $args['channel'];
+		}
+		if ( ! empty( $args['message'] ) ) {
+			$query         .= ' AND message LIKE %s ';
+			$query_params[] = '%' . $this->wpdb->esc_like( $args['message'] ) . '%';
+		}
+		if ( ! empty( $args['level'] ) ) {
+			$query         .= ' AND level = %d ';
+			$query_params[] = $args['level'];
+		}
+		if ( ! empty( $args['level_name'] ) ) {
+			$query         .= ' AND level_name = %s ';
+			$query_params[] = $args['level_name'];
+		}
+		if ( ! empty( $args['blog_id'] ) ) {
+			$query         .= " AND JSON_VALUE( extra, '$.current_blog_id' ) = %d ";
+			$query_params[] = $args['blog_id'];
+		}
+
+		$order_by       = array_key_exists( $args['order_by'], $this->get_columns_formats() ) ? $args['order_by'] : 'id';
+		$order          = in_array( strtoupper( $args['order'] ), array( 'ASC', 'DESC' ) ) ? $args['order'] : 'DESC';
+		$query         .= "ORDER BY $order_by $order LIMIT %d, %d";
+		$query_params[] = ( (int) $args['paged'] - 1 ) * (int) $args['per_page'];
+		$query_params[] = (int) $args['per_page'];
+		$prepared       = $this->wpdb->prepare( $query, $query_params );
+		if ( is_callable( array( 'WP_CLI', 'debug' ) ) ) {
+			WP_CLI::debug( $prepared );
+		}
+		$rows = $this->wpdb->get_results( $prepared );
+		if ( ! $rows ) {
+			return array();
+		}
+		$items = array_map(
+			function ( $item ) {
+				return new Record( (array) $item );
+			},
+			$rows
+		);
+		return $items;
+	}
+
+	/**
+	 * Find log channels
+	 *
+	 * phpcs:disable WordPress.DB.PreparedSQL.NotPrepared
+	 *
+	 * @param array $params {
+	 *     Query parameters.
+	 *     @type ?int $blog_id Filter by blog id where the record was originated. Default null.
+	 * }
+	 * @return array|object|null
+	 */
+	public function find_channels( array $params = array() ): array {
+		$args         = wp_parse_args(
+			$params,
+			array(
+				'blog_id' => null,
+			)
+		);
+		$query        = "SELECT channel, id as count, created_at as last_record FROM {$this->table} WHERE 1 = 1";
+		$query_params = array();
+		if ( ! empty( $args['blog_id'] ) ) {
+			$query         .= " AND JSON_VALUE( extra, '$.current_blog_id' ) = %d ";
+			$query_params[] = $args['blog_id'];
+		}
+		$query   .= ' GROUP BY channel ORDER BY last_record DESC ';
+		$prepared = $this->wpdb->prepare( $query, $query_params );
+		if ( is_callable( array( 'WP_CLI', 'debug' ) ) ) {
+			WP_CLI::debug( $prepared );
+		}
+		$results = $this->wpdb->get_results( $prepared, ARRAY_A );
+		return $results;
+	}
+
+	/**
+	 * Get a record by id from the database
+	 *
+	 * phpcs:disable WordPress.DB.PreparedSQL.NotPrepared
+	 *
+	 * @param int $id ID of the record on database.
+	 * @return null|Record The requested record of null if not found
+	 */
+	public function get( int $id ): ?Record {
+		$query = "SELECT * FROM {$this->table} WHERE id = %d";
+		$row   = $this->wpdb->get_row(
+			$this->wpdb->prepare( $query, $id ),
+			ARRAY_A
+		);
+		if ( ! $row ) {
+			return null;
+		}
+		return new Record( $row );
 	}
 }

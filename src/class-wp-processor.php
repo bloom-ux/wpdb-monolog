@@ -40,10 +40,9 @@ class WP_Processor implements ProcessorInterface {
 				'current_blog_id'    => is_callable( 'get_current_blog_id' ) ? get_current_blog_id() : null,
 				'current_network_id' => is_callable( 'get_current_network_id' ) ? get_current_network_id() : null,
 				'is_ssl'             => is_callable( 'is_ssl' ) ? is_ssl() : null,
-				'environment'        => is_callable( 'wp_get_environment_type' ) ? wp_get_environment_type() : null
+				'environment'        => is_callable( 'wp_get_environment_type' ) ? wp_get_environment_type() : null,
 			)
 		);
 		return $record;
 	}
-
 }

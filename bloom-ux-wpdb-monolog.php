@@ -23,3 +23,17 @@
  */
 
 namespace bloom\WPDB_Monolog;
+
+if ( is_readable( __DIR__ . '/vendor/autoload.php' ) ) {
+	require_once __DIR__ . '/vendor/autoload.php';
+}
+
+if ( is_callable( array( '\WP_CLI', 'add_command' ) ) ) {
+	\WP_CLI::add_command(
+		'wpdb-monolog',
+		new CLI(),
+		array(
+			'shortdesc' => 'Interact with monolog records saved on database.',
+		)
+	);
+}
