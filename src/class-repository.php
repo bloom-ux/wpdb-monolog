@@ -9,6 +9,7 @@
 
 namespace bloom\WPDB_Monolog;
 
+use DateTimeImmutable;
 use DateTimeZone;
 use WP_CLI;
 use wpdb;
@@ -221,6 +222,8 @@ class Repository {
 	 *     @type int    $per_page   Number of results at once. Default 10.
 	 *     @type string $order_by   How to sort results. Can be any table column. Default 'id';
 	 *     @type string $order      Whether to sort ascending or descending. Default 'DESC'
+	 *     @type string $since      Lower bound for created_at (inclusive).
+	 *     @type string $before     Upper bound for created_at (exclusive).
 	 * }
 	 * @return array|Record[] Array of found records or empty array if none found.
 	 */
@@ -237,6 +240,8 @@ class Repository {
 				'per_page'   => 10,
 				'order_by'   => 'id',
 				'order'      => 'DESC',
+				'after'      => null,
+				'before'     => null,
 			)
 		);
 		$query_params = array();
@@ -261,12 +266,25 @@ class Repository {
 			$query         .= " AND JSON_VALUE( extra, '$.current_blog_id' ) = %d ";
 			$query_params[] = $args['blog_id'];
 		}
+		if ( ! empty( $args['after'] ) ) {
+			$after_dt = new DateTimeImmutable( $args['after'], $this->timezone );
+			$query         .= ' AND created_at >= %s ';
+			$query_params[] = $after_dt->format( 'Y-m-d H:i:s' );
+		}
+		if ( ! empty( $args['before'] ) ) {
+			$before_dt = new DateTimeImmutable( $args['before'], $this->timezone );
+			$query         .= ' AND created_at <= %s ';
+			$query_params[] = $before_dt->format( 'Y-m-d H:i:s' );
+		}
 
 		$order_by       = array_key_exists( $args['order_by'], $this->get_columns_formats() ) ? $args['order_by'] : 'id';
 		$order          = in_array( strtoupper( $args['order'] ), array( 'ASC', 'DESC' ) ) ? $args['order'] : 'DESC';
-		$query         .= "ORDER BY $order_by $order LIMIT %d, %d";
-		$query_params[] = ( (int) $args['paged'] - 1 ) * (int) $args['per_page'];
-		$query_params[] = (int) $args['per_page'];
+		$query         .= " ORDER BY $order_by $order ";
+		if ( ! empty( $args['per_page'] ) && $args['per_page'] > 0 ) {
+			$query .= ' LIMIT %d, %d';
+			$query_params[] = ( (int) $args['paged'] - 1 ) * (int) $args['per_page'];
+			$query_params[] = (int) $args['per_page'];
+		}
 		$prepared       = $this->wpdb->prepare( $query, $query_params );
 		if ( is_callable( array( 'WP_CLI', 'debug' ) ) ) {
 			WP_CLI::debug( $prepared );
@@ -335,5 +353,41 @@ class Repository {
 			return null;
 		}
 		return new Record( $row );
+	}
+
+	/**
+	 * Delete records from the database by query parameters.
+	 *
+	 * @param array $params Query parameters. See $this->find_by_query() for details.
+	 * @return ?int Number of deleted rows or null if something fails.
+	 * @see $this->find_by_query()
+	 */
+	public function delete_by_query( array $params = array() ): ?int {
+		$records = $this->find_by_query( $params );
+		if ( empty( $records ) ) {
+			return null;
+		}
+		$where_clauses = array();
+		$query_params = array();
+		$ids = array_map(
+			function ( $record ) {
+				return $record->id;
+			},
+			$records
+		);
+		if ( empty( $ids ) ) {
+			return null;
+		}
+		$placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$where_clauses[] = "id IN ($placeholders)";
+		$query_params = $ids;
+
+		$table = "{$this->table}";
+		$where_sql = $where_clauses ? 'WHERE ' . implode( ' AND ', $where_clauses ) : '';
+		$sql = "DELETE FROM $table $where_sql";
+		$sql = $this->wpdb->prepare( $sql, $query_params );
+		$result = $this->wpdb->query( $sql );
+		$return = is_bool( $result ) ? null : (int) $result;
+		return $return;
 	}
 }

@@ -7,23 +7,14 @@
 
 namespace bloom\WPDB_Monolog;
 
+use DateTimeImmutable;
+
 use function WP_CLI\Utils\format_items;
 
 /**
  * Command line interface for log records on database
  */
 class CLI {
-
-	/**
-	 * Deletes old records to keep the database on a manageable size
-	 *
-	 * @param $args $args Positional arguments.
-	 * @return void
-	 * @subcommand purge-records
-	 */
-	public function purge_records( $args ) {
-		return;
-	}
 
 	/**
 	 * Performs the plugin installation
@@ -33,6 +24,55 @@ class CLI {
 	public function install() {
 		$repository = Repository::get_instance();
 		$repository->install();
+	}
+
+	/**
+	 * Deletes old records to keep the database on a manageable size
+	 *
+	 * ## OPTIONS
+	 *
+	 * [<max-age>]
+	 * : Number of days to keep (older records will be deleted). Default: 90.
+	 *
+	 * [--dry-run]
+	 * : Query the database to check how many records would be deleted but don't do the deletion.
+	 *
+	 * [--network]
+	 * : Delete records from all sites on the network. Default false, will only work for current site.
+	 *
+	 * @param array $args Positional arguments.
+	 * @param array $assoc_args Associative arguments.
+	 * @return void
+	 * @subcommand purge-records
+	 */
+	public function purge_records( $args = array(), $assoc_args = array() ) {
+		$max_age_days = isset( $args[0] ) && is_numeric( $args[0] ) ? (int) $args[0] : 90;
+		$date_since   = new DateTimeImmutable( "{$max_age_days} days ago", wp_timezone() );
+		$assoc_args   = wp_parse_args(
+			$assoc_args,
+			array(
+				'before' => $date_since->format( 'Y-m-d' ),
+				'per_page' => -1,
+				'url' => empty( $_SERVER['HTTP_HOST'] ) ? null : esc_url( wp_unslash( $_SERVER['HTTP_HOST'] ) ), //phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			)
+		);
+		if ( ! empty( $assoc_args['network'] ) && $assoc_args['network'] ) {
+			unset( $assoc_args['url'] );
+		} else {
+			$requested_domain = wp_parse_url( $assoc_args['url'], PHP_URL_HOST );
+			$requested_path   = wp_parse_url( $assoc_args['url'], PHP_URL_PATH );
+			$site_from_url    = get_blog_id_from_url( $requested_domain, $requested_path );
+			if ( $site_from_url ) {
+				$assoc_args['blog_id'] = $site_from_url;
+			}
+		}
+		if ( isset( $assoc_args['dry-run'] ) && $assoc_args['dry-run'] ) {
+			$records = Repository::get_instance()->find_by_query( $assoc_args );
+			\WP_CLI::success( sprintf( "Using --dry-run: %d old log record(s) older than %d days would've been deleted.", count( $records ), $max_age_days ) );
+			return;
+		}
+		$deleted = Repository::get_instance()->delete_by_query( $assoc_args );
+		\WP_CLI::success( sprintf( 'Deleted %d old log record(s) older than %d days.', $deleted, $max_age_days ) );
 	}
 
 	/**
