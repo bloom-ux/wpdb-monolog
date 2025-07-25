@@ -8,6 +8,7 @@
 namespace bloom\WPDB_Monolog;
 
 use DateTimeImmutable;
+use WP_CLI;
 
 use function WP_CLI\Utils\format_items;
 
@@ -104,20 +105,20 @@ class CLI {
 	 *
 	 * ## AVAILABLE FIELDS
 	 *
-	 *  These fields will be displayed for each record:
+	 *   These fields will be displayed for each record:
 	 *
-	 *  * id
-	 *  * channel
-	 *  * message
-	 *  * level_name
-	 *  * created_at
+	 *   * id
+	 *   * channel
+	 *   * message
+	 *   * level_name
+	 *   * created_at
 	 *
-	 *  These fields are optionally available:
+	 *   These fields are optionally available:
 	 *
-	 *  * level
-	 *  * extra
-	 *  * context
-	 *  * created_at_gmt
+	 *   * level
+	 *   * extra
+	 *   * context
+	 *   * created_at_gmt
 	 *
 	 * ## EXAMPLES
 	 *
@@ -212,7 +213,10 @@ class CLI {
 	public function get( $args ) {
 		list( $id ) = $args;
 		$record     = Repository::get_instance()->get( $id );
-		echo json_encode( $record, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
+		if ( ! $record ) {
+			WP_CLI::error( "Record with ID $record not found." );
+		}
+		echo json_encode( $record, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 	}
 
 	/**
