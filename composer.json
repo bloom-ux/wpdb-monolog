@@ -16,11 +16,6 @@
     "extra": {
         "installer-name": "bloom-ux-wpdb-monolog"
     },
-    "config": {
-        "platform": {
-            "php": ">=7.4"
-        }
-    },
 	"autoload": {
 		"classmap": [
 			"src/"
