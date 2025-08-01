@@ -57,7 +57,7 @@ class CLI {
 				'url' => empty( $_SERVER['HTTP_HOST'] ) ? null : esc_url( wp_unslash( $_SERVER['HTTP_HOST'] ) ), //phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 			)
 		);
-		if ( ! empty( $assoc_args['network'] ) && $assoc_args['network'] ) {
+		if ( ! is_multisite() || ( ! empty( $assoc_args['network'] ) && $assoc_args['network'] ) ) {
 			unset( $assoc_args['url'] );
 		} else {
 			$requested_domain = wp_parse_url( $assoc_args['url'], PHP_URL_HOST );
@@ -145,7 +145,7 @@ class CLI {
 			)
 		);
 		$fields     = 'ids' === $assoc_args['format'] ? 'id' : $assoc_args['fields'];
-		if ( ! empty( $assoc_args['network'] ) && $assoc_args['network'] ) {
+		if ( ! is_multisite() || ( ! empty( $assoc_args['network'] ) && $assoc_args['network'] ) ) {
 			unset( $assoc_args['url'] );
 		} else {
 			$requested_domain = wp_parse_url( $assoc_args['url'], PHP_URL_HOST );
