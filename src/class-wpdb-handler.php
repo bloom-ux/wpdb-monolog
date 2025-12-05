@@ -5,9 +5,10 @@
  * @package bloom\WPDB_Monolog
  */
 
-namespace bloom\WPDB_Monolog;
+namespace Bloom_UX\WPDB_Monolog;
 
 use Monolog\Handler\AbstractProcessingHandler;
+use Monolog\LogRecord;
 
 /**
  * Log records to the WordPress database
@@ -17,7 +18,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 	/**
 	 * Write the record to db
 	 *
-	 * @param array $record {
+	 * @param LogRecord $record {
 	 *    The log record.
 	 *    @type string $message The log message.
 	 *    @type mixed[] $context The log context.
@@ -30,7 +31,7 @@ class WPDB_Handler extends AbstractProcessingHandler {
 	 * }
 	 * @return void
 	 */
-	protected function write( $record ): void {
+	protected function write( LogRecord $record ): void {
 		$repository = Repository::get_instance();
 		$repository->save( $record );
 	}

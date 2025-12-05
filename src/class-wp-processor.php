@@ -5,8 +5,9 @@
  * @package bloom\WPDB_Monolog
  */
 
-namespace bloom\WPDB_Monolog;
+namespace Bloom_UX\WPDB_Monolog;
 
+use Monolog\LogRecord;
 use Monolog\Processor\ProcessorInterface;
 
 /**
@@ -19,10 +20,10 @@ class WP_Processor implements ProcessorInterface {
 	/**
 	 * Add extra information for the log records
 	 *
-	 * @param array $record The original log record.
-	 * @return array Log record with extra WordPress information.
+	 * @param LogRecord $record The original log record.
+	 * @return LogRecord Log record with extra WordPress information.
 	 */
-	public function __invoke( array $record ) {
+	public function __invoke( LogRecord $record ) {
 		if ( ! $record['extra'] ) {
 			$record['extra'] = array();
 		}

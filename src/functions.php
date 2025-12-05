@@ -5,8 +5,9 @@
  * @package bloom\WPDB_Monolog
  */
 
-namespace bloom\WPDB_Monolog;
+namespace Bloom_UX\WPDB_Monolog;
 
+use Monolog\Level;
 use Monolog\Logger;
 use Monolog\Processor\PsrLogMessageProcessor;
 
@@ -31,7 +32,6 @@ function get_logger_for_channel( string $channel ): Logger {
  * @return Logger An instantiated Logger object.
  */
 function init_logger_for_channel( string $channel ): Logger {
-	global $wpdb;
 	$handler = new WPDB_Handler();
 	$handler->setLevel( 250 );
 	$logger = new Logger( $channel );
@@ -43,9 +43,9 @@ function init_logger_for_channel( string $channel ): Logger {
 		$cli_handler  = new WP_CLI_Handler();
 		$is_cli_debug = ! empty( $_SERVER['argv'] ) && in_array( '--debug', $_SERVER['argv'], true );
 		if ( $is_cli_debug ) {
-			$cli_handler->setLevel( Logger::DEBUG );
+			$cli_handler->setLevel( Level::Debug );
 		} else {
-			$cli_handler->setLevel( Logger::NOTICE );
+			$cli_handler->setLevel( Level::Notice );
 		}
 		$logger->pushHandler( $cli_handler );
 	}

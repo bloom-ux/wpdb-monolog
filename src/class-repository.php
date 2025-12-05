@@ -7,7 +7,7 @@
  * @package bloom\WPDB_Monolog
  */
 
-namespace bloom\WPDB_Monolog;
+namespace Bloom_UX\WPDB_Monolog;
 
 use DateTimeImmutable;
 use DateTimeZone;

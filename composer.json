@@ -3,7 +3,7 @@
     "description": "Integrate monolog logging with $wpdb",
     "type": "wordpress-muplugin",
     "require": {
-        "monolog/monolog": "^2"
+        "monolog/monolog": "^3"
     },
     "license": "GPL-3.0-or-later",
     "authors": [
