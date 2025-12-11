@@ -9,6 +9,7 @@ namespace Bloom_UX\WPDB_Monolog;
 
 use WP_CLI;
 use Monolog\Handler\AbstractProcessingHandler;
+use Monolog\LogRecord;
 
 /**
  * Outputs log records to WordPress CLI
@@ -18,10 +19,10 @@ class WP_CLI_Handler extends AbstractProcessingHandler {
 	/**
 	 * Write a record to WordPress CLI
 	 *
-	 * @param array $record The log record.
+	 * @param LogRecord $record The log record.
 	 * @return void
 	 */
-	protected function write( array $record ): void {
+	protected function write( LogRecord $record ): void {
 		$level = (int) $record['level'];
 		if ( $level >= 400 ) {
 			WP_CLI::error( $record['formatted'], false );
