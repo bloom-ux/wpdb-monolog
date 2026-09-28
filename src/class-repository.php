@@ -18,7 +18,7 @@ use wpdb;
  * Handles the interactions with the database
  */
 class Repository {
-	const VERSION = '0.2.0';
+	const VERSION = '0.2.1';
 
 	const INSTALLED_VERSION_OPT_NAME = 'wpdb_monolog_handler_version';
 
@@ -82,15 +82,56 @@ class Repository {
 	}
 
 	/**
-	 * Check installed version and updates database schema if needed
+	 * Get the name of the table used to save log records
+	 *
+	 * @return string Table name including the WordPress table prefix.
 	 */
-	public function install() {
-		$installed_version = get_option( static::INSTALLED_VERSION_OPT_NAME, '0.0.0' );
-		if ( $installed_version >= static::VERSION ) {
-			return;
+	public function get_table_name(): string {
+		return $this->table;
+	}
+
+	/**
+	 * Get the schema version registered on database
+	 *
+	 * @return string Installed version, or '0.0.0' if the plugin has never been installed.
+	 */
+	public function get_installed_version(): string {
+		return (string) get_option( static::INSTALLED_VERSION_OPT_NAME, '0.0.0' );
+	}
+
+	/**
+	 * Check if the registered schema version is up to date
+	 *
+	 * @return bool True if the installed version is equal or greater than the current one.
+	 */
+	public function is_up_to_date(): bool {
+		return version_compare( $this->get_installed_version(), static::VERSION, '>=' );
+	}
+
+	/**
+	 * Check if the log table exists on database
+	 *
+	 * @return bool True if the table exists.
+	 */
+	public function table_exists(): bool {
+		$wpdb = $this->wpdb;
+		return (bool) $wpdb->get_var(
+			$wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $this->table ) )
+		);
+	}
+
+	/**
+	 * Check installed version and updates database schema if needed
+	 *
+	 * @return bool True if the schema was created or updated, false if it was already up to date or
+	 *              if the table could not be verified after running dbDelta().
+	 */
+	public function install(): bool {
+		if ( $this->is_up_to_date() && $this->table_exists() ) {
+			return false;
 		}
 		$charset    = $this->wpdb->get_charset_collate();
-		$table_name = "{$this->wpdb->base_prefix}{$this->table}";
+		$table_name = "{$this->table}";
 		$sql        = "CREATE TABLE $table_name (
 		    id BIGINT( 20 ) UNSIGNED NOT NULL AUTO_INCREMENT,
             channel VARCHAR( 255 ) NOT NULL,
@@ -109,7 +150,16 @@ class Repository {
 		) $charset";
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 		dbDelta( $sql );
+
+		/*
+		 * Verify the table exists before registering the new version; otherwise a failed
+		 * dbDelta() would prevent future install attempts.
+		 */
+		if ( ! $this->table_exists() ) {
+			return false;
+		}
 		update_option( static::INSTALLED_VERSION_OPT_NAME, static::VERSION );
+		return true;
 	}
 
 	/**
@@ -333,6 +383,70 @@ class Repository {
 		}
 		$results = $this->wpdb->get_results( $prepared, ARRAY_A );
 		return $results;
+	}
+
+	/**
+	 * Get record totals and the age of the oldest record
+	 *
+	 * phpcs:disable WordPress.DB.PreparedSQL.NotPrepared
+	 *
+	 * @param array $params {
+	 *     Query parameters.
+	 *     @type ?int $blog_id Filter by blog id where the records were originated. Default null.
+	 * }
+	 * @return array {
+	 *     @type int     $total_records  Number of records.
+	 *     @type int     $total_channels Number of distinct channels.
+	 *     @type ?string $oldest_record  Date of the oldest record (site timezone) or null if there are no records.
+	 *     @type ?int    $oldest_days    Days elapsed since the oldest record or null if there are no records.
+	 * }
+	 */
+	public function get_usage_summary( array $params = array() ): array {
+		$args         = wp_parse_args( $params, array( 'blog_id' => null ) );
+		$query        = "SELECT COUNT(*) AS total_records, COUNT(DISTINCT channel) AS total_channels, MIN(created_at) AS oldest_record FROM {$this->table} WHERE 1 = 1";
+		$query_params = array();
+		if ( ! empty( $args['blog_id'] ) ) {
+			$query         .= " AND JSON_VALUE( extra, '$.current_blog_id' ) = %d ";
+			$query_params[] = $args['blog_id'];
+		}
+		$row     = $this->wpdb->get_row( $this->wpdb->prepare( $query, $query_params ), ARRAY_A );
+		$summary = array(
+			'total_records'  => (int) ( $row['total_records'] ?? 0 ),
+			'total_channels' => (int) ( $row['total_channels'] ?? 0 ),
+			'oldest_record'  => null,
+			'oldest_days'    => null,
+		);
+		if ( empty( $row['oldest_record'] ) ) {
+			return $summary;
+		}
+		$oldest                   = new DateTimeImmutable( $row['oldest_record'], $this->timezone );
+		$summary['oldest_record'] = $oldest->format( 'Y-m-d H:i:s' );
+		$summary['oldest_days']   = $oldest->diff( new DateTimeImmutable( 'now', $this->timezone ) )->days;
+		return $summary;
+	}
+
+	/**
+	 * Get record counts grouped by level
+	 *
+	 * phpcs:disable WordPress.DB.PreparedSQL.NotPrepared
+	 *
+	 * @param array $params {
+	 *     Query parameters.
+	 *     @type ?int $blog_id Filter by blog id where the records were originated. Default null.
+	 * }
+	 * @return array Rows with level, level_name and total keys, sorted by severity.
+	 */
+	public function get_records_by_level( array $params = array() ): array {
+		$args         = wp_parse_args( $params, array( 'blog_id' => null ) );
+		$query        = "SELECT level, level_name, COUNT(*) AS total FROM {$this->table} WHERE 1 = 1";
+		$query_params = array();
+		if ( ! empty( $args['blog_id'] ) ) {
+			$query         .= " AND JSON_VALUE( extra, '$.current_blog_id' ) = %d ";
+			$query_params[] = $args['blog_id'];
+		}
+		$query        .= ' GROUP BY level, level_name ORDER BY level ASC ';
+		$rows          = $this->wpdb->get_results( $this->wpdb->prepare( $query, $query_params ), ARRAY_A );
+		return $rows ? $rows : array();
 	}
 
 	/**
